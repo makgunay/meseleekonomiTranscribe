@@ -1,0 +1,17 @@
+__pychache__/ 
+
+
+#Model and Video folder is not included as it takes too much space
+models/
+video/
+
+
+#Virtual Enviornment
+.venv/
+.idea/
+.DS_Store
+
+
+
+
+
