@@ -109,33 +109,58 @@ You're now ready to use the transcription tool! Here's how:
 
 1. In the Terminal, make sure you're in the meseleekonomiTranscribe folder.
 
-2. To start the tool, type:
+2. To start the web interface, type:
 
    ```
-   poetry run python main.py
+   poetry run streamlit run app.py
    ```
 
-3. The tool will ask you if you want to transcribe a local file or a YouTube video. Type '1' for a local file or '2' for a YouTube video.
+3. The web interface will open in your browser with three tabs:
 
-4. If you chose a local file, you'll need to provide the full path to the file. For example: `/Users/YourUsername/Documents/audio_file.mp3`
+   - **Local File**: Upload and transcribe local audio files
+     * Supports MP3, WAV, M4A, and OGG formats
+     * View transcript directly in browser
+     * Download transcript as TXT and SRT files
 
-5. If you chose a YouTube video, you'll need to provide the full URL of the video.
+   - **YouTube URL**: Transcribe YouTube videos
+     * Enter a YouTube video URL
+     * View transcript directly in browser
+     * Files are saved automatically in the video directory
 
-6. The tool will then download the audio (if it's a YouTube video) and start transcribing. This may take a while depending on the length of the audio.
+   - **Batch Processing**: Process multiple YouTube videos
+     * Upload a CSV file with YouTube URLs in the third column
+     * Monitor progress with a progress bar
+     * Files are saved automatically for each video
 
-7. Once finished, the tool will:
-   - Show you the transcript
-   - Save a text file with the transcript
-   - Save an SRT file with timestamped segments
+4. For local files:
+   - Upload your audio file using the file uploader
+   - Click "Transcribe Local File"
+   - View the transcript and download results
 
-Example text output:
+5. For YouTube videos:
+   - Paste the video URL
+   - Click "Transcribe YouTube Video"
+   - View the transcript (files are saved automatically)
+
+6. For batch processing:
+   - Prepare a CSV file with YouTube URLs in the third column
+   - Upload the CSV file
+   - Click "Process Batch" and monitor progress
+
+The tool will create:
+- Text files (.txt) with plain transcripts
+- SRT files (.srt) with timestamped segments
+
+Example outputs are saved in these formats:
+
+Text file:
 ```
 Hello, welcome to our podcast.
 Thank you for having me today.
 Let's talk about our topic...
 ```
 
-Example SRT output:
+SRT file:
 ```
 1
 00:00:00,000 --> 00:00:02,500
