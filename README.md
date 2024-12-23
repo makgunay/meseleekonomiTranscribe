@@ -123,7 +123,32 @@ You're now ready to use the transcription tool! Here's how:
 
 6. The tool will then download the audio (if it's a YouTube video) and start transcribing. This may take a while depending on the length of the audio.
 
-7. Once finished, the tool will show you the transcript and save it as a text file and an SRT file in the same folder as your audio file.
+7. Once finished, the tool will:
+   - Show you the transcript
+   - Save a text file with the transcript
+   - Save an SRT file with timestamped segments
+
+Example text output:
+```
+Hello, welcome to our podcast.
+Thank you for having me today.
+Let's talk about our topic...
+```
+
+Example SRT output:
+```
+1
+00:00:00,000 --> 00:00:02,500
+Hello, welcome to our podcast.
+
+2
+00:00:02,500 --> 00:00:04,800
+Thank you for having me today.
+
+3
+00:00:04,800 --> 00:00:07,200
+Let's talk about our topic...
+```
 
 ## Troubleshooting
 

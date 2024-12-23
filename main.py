@@ -1,5 +1,5 @@
 import audio_downloader
-import transcription
+from transcription import Transcriber
 from interface import UserInterface
 
 
@@ -16,12 +16,12 @@ def get_audio_file(ui):
         return csv_file
 
 
-def process_single_file(ui, audio_file):
+def process_single_file(ui, transcriber, audio_file):
     ui.display_progress(f"Processing audio file: {audio_file}")
 
     # Transcribe audio
     ui.display_progress("Transcribing audio...")
-    transcription_result = transcription.transcribe_audio(audio_file)
+    transcription_result = transcriber.transcribe_audio(audio_file)
     if not transcription_result:
         ui.display_error("Transcription failed.")
         return
@@ -30,16 +30,17 @@ def process_single_file(ui, audio_file):
     ui.display_transcript(transcription_result['text'])
 
     # Save transcript as text
-    transcription.save_transcript(transcription_result['text'], audio_file)
+    transcriber.save_transcript(transcription_result, audio_file)
     ui.display_success(f"Transcript saved as text file.")
 
     # Save transcript as SRT
-    transcription.save_srt(transcription_result['segments'], audio_file)
+    transcriber.save_srt(transcription_result['segments'], audio_file)
     ui.display_success(f"Transcript saved as SRT file.")
 
 
 def main():
     ui = UserInterface()
+    transcriber = Transcriber()
 
     audio_source = get_audio_file(ui)
     if not audio_source:
@@ -59,12 +60,12 @@ def main():
                 ui.display_progress(f"Processing URL: {video_url}")
                 audio_file = audio_downloader.download_audio(video_url)
                 if audio_file:
-                    process_single_file(ui, audio_file)
+                    process_single_file(ui, transcriber, audio_file)
                 else:
                     ui.display_error(f"Failed to download audio for URL: {video_url}")
     else:
         # Single file processing
-        process_single_file(ui, audio_source)
+        process_single_file(ui, transcriber, audio_source)
 
 
 if __name__ == "__main__":
