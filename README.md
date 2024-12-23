@@ -132,20 +132,36 @@ You're now ready to use the transcription tool! Here's how:
      * Monitor progress with a progress bar
      * Files are saved automatically for each video
 
-4. For local files:
+4. Choose your output directory:
+   - Click the "📁 Select Folder" button at the top of the interface
+   - Enter your desired output directory path
+   - The directory will be created if it doesn't exist
+   - Leave empty to use the default directory (./video/)
+   - You'll see a confirmation message when the directory is set
+
+5. Monitor Progress:
+   - Watch the progress bar for overall completion
+   - See detailed status updates for each step
+   - View the total time taken for the process
+   - Get clear success/error messages with emojis
+
+5. For local files:
    - Upload your audio file using the file uploader
    - Click "Transcribe Local File"
    - View the transcript and download results
+   - Files will be saved to your chosen directory
 
-5. For YouTube videos:
+6. For YouTube videos:
    - Paste the video URL
    - Click "Transcribe YouTube Video"
-   - View the transcript (files are saved automatically)
+   - View the transcript
+   - Files will be saved to your chosen directory
 
-6. For batch processing:
+7. For batch processing:
    - Prepare a CSV file with YouTube URLs in the third column
    - Upload the CSV file
    - Click "Process Batch" and monitor progress
+   - All files will be saved to your chosen directory
 
 The tool will create:
 - Text files (.txt) with plain transcripts
