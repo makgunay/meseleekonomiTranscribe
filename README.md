@@ -79,7 +79,7 @@ Now that your computer is ready, let's set up the transcription tool:
 
 1. Download the MeseleEkonomi Transcribe files from the provided source (your instructor or the project website should provide this).
 
-   '''zsh
+   '''
    git clone https://github.com/makgunay/meseleekonomiTranscribe.git
    
    '''
