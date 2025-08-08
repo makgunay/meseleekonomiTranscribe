@@ -16,12 +16,12 @@ def get_audio_file(ui):
         return csv_file
 
 
-def process_single_file(ui, transcriber, audio_file):
+def process_single_file(ui, transcriber, audio_file, output_format='4', language='tr'):
     ui.display_progress(f"Processing audio file: {audio_file}")
 
     # Transcribe audio
-    ui.display_progress("Transcribing audio...")
-    transcription_result = transcriber.transcribe_audio(audio_file)
+    ui.display_progress(f"Transcribing audio (Language: {'Turkish' if language == 'tr' else 'English'})...")
+    transcription_result = transcriber.transcribe_audio(audio_file, language=language)
     if not transcription_result:
         ui.display_error("Transcription failed.")
         return
@@ -29,13 +29,15 @@ def process_single_file(ui, transcriber, audio_file):
     # Display transcript
     ui.display_transcript(transcription_result['text'])
 
-    # Save transcript as text
-    transcriber.save_transcript(transcription_result, audio_file)
-    ui.display_success(f"Transcript saved as text file.")
-
-    # Save transcript as SRT
-    transcriber.save_srt(transcription_result['segments'], audio_file)
-    ui.display_success(f"Transcript saved as SRT file.")
+    # Save transcripts based on chosen format
+    if output_format in ['1', '4']:  # Text or All
+        transcriber.save_transcript(transcription_result, audio_file)
+    
+    if output_format in ['2', '4']:  # SRT or All
+        transcriber.save_srt(transcription_result['segments'], audio_file)
+    
+    if output_format in ['3', '4']:  # JSON or All
+        transcriber.save_json(transcription_result, audio_file)
 
 
 def main():
@@ -46,6 +48,12 @@ def main():
     if not audio_source:
         ui.display_error("Failed to get audio source.")
         return
+
+    # Get language preference
+    language = ui.get_language()
+    
+    # Get output format preference
+    output_format = ui.get_output_format()
 
     if audio_source.endswith('.csv'):
         # Batch processing
@@ -60,12 +68,12 @@ def main():
                 ui.display_progress(f"Processing URL: {video_url}")
                 audio_file = audio_downloader.download_audio(video_url)
                 if audio_file:
-                    process_single_file(ui, transcriber, audio_file)
+                    process_single_file(ui, transcriber, audio_file, output_format, language)
                 else:
                     ui.display_error(f"Failed to download audio for URL: {video_url}")
     else:
         # Single file processing
-        process_single_file(ui, transcriber, audio_source)
+        process_single_file(ui, transcriber, audio_source, output_format, language)
 
 
 if __name__ == "__main__":

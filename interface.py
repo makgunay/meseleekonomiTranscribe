@@ -57,3 +57,21 @@ class UserInterface:
     @staticmethod
     def display_success(message):
         print(f"Success: {message}")
+    
+    @staticmethod
+    def get_output_format():
+        while True:
+            choice = input("Choose output format - '1' for Text, '2' for SRT, '3' for JSON, '4' for All formats: ")
+            if choice in ['1', '2', '3', '4']:
+                return choice
+            print("Invalid choice. Please enter '1', '2', '3', or '4'.")
+    
+    @staticmethod
+    def get_language():
+        while True:
+            choice = input("Select input language - '1' for Turkish, '2' for English: ")
+            if choice == '1':
+                return 'tr'
+            elif choice == '2':
+                return 'en'
+            print("Invalid choice. Please enter '1' for Turkish or '2' for English.")

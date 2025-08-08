@@ -1,187 +1,126 @@
 # MeseleEkonomi Transcribe
 
-MeseleEkonomi Transcribe is a user-friendly tool that allows you to transcribe audio from local files or YouTube videos. This guide will help you set up and use the tool, even if you have no coding experience.
+A powerful audio transcription tool that supports local files, YouTube videos, and batch processing with an intuitive web interface.
 
-## What You Need Before Starting
+## Features
 
-1. A computer running macOS
-2. Internet connection
-3. Basic familiarity with using the Terminal app on macOS
+- **Multiple Input Sources**
+  - Local audio files (MP3, WAV, M4A, OGG)
+  - YouTube videos via URL
+  - Batch processing from CSV files
+  
+- **Modern Web Interface**
+  - Native file and folder selection dialogs
+  - Dropdown menu for input source selection
+  - Persistent output directory settings
+  - Real-time progress tracking
+  - Download buttons for transcripts
+  
+- **Multiple Output Formats**
+  - Plain text transcripts (.txt)
+  - SRT subtitles with timestamps (.srt)
+  - JSON format with detailed segments (.json)
+  - Flexible format selection (individual or combined)
 
-## Setting Up Your Computer
+- **Language Support**
+  - Turkish transcription
+  - English transcription
+  - Automatic language detection
 
-Before you can use MeseleEkonomi Transcribe, you need to set up a few things on your computer. Don't worry, we'll guide you through each step!
+## Prerequisites
 
-### Step 1: Install Homebrew
+- macOS (with native Finder integration) or Linux/Windows
+- Python 3.8 or higher
+- FFmpeg
+- Git
 
-Homebrew is a tool that helps install other software on your Mac. To install it:
+## Installation
 
-1. Open the Terminal app on your Mac. You can find it by pressing Cmd + Space, typing "Terminal", and pressing Enter.
-2. Copy and paste the following command into the Terminal and press Enter:
+### macOS Setup
 
-   ```
+1. **Install Homebrew** (if not already installed):
+   ```bash
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
 
-3. Follow the prompts on the screen to complete the installation.
-
-### Step 2: Install FFmpeg
-
-FFmpeg is software that helps process audio and video files. To install it:
-
-1. In the Terminal, type the following command and press Enter:
-
-   ```
-   brew install ffmpeg
+2. **Install required dependencies**:
+   ```bash
+   brew install ffmpeg python git
    ```
 
-2. Wait for the installation to complete.
-
-### Step 3: Install Python
-
-Python is the programming language used by MeseleEkonomi Transcribe. To install it:
-
-1. In the Terminal, type the following command and press Enter:
-
-   ```
-   brew install python
-   ```
-
-2. Wait for the installation to complete.
-
-### Step 4: Install Poetry
-
-Poetry helps manage the project and its dependencies. To install it:
-
-1. In the Terminal, type the following command and press Enter:
-
-   ```
+3. **Install Poetry** (dependency manager):
+   ```bash
    curl -sSL https://install.python-poetry.org | python3 -
    ```
 
-2. Wait for the installation to complete.
-
-### Step 5: Install Git
-
-Git is needed to download the Whisper model. To install it:
-
-1. In the Terminal, type the following command and press Enter:
-
-   ```
-   brew install git
-   ```
-
-2. Wait for the installation to complete.
-
-## Setting Up MeseleEkonomi Transcribe
-
-Now that your computer is ready, let's set up the transcription tool:
-
-1. Download the MeseleEkonomi Transcribe files from the provided source (your instructor or the project website should provide this).
-
-   ```
+4. **Clone the repository**:
+   ```bash
    git clone https://github.com/makgunay/meseleekonomiTranscribe.git
-   
+   cd meseleekonomiTranscribe
    ```
 
-2. Open the Terminal and navigate to the folder where you downloaded the files. For example, if you downloaded it to your Documents folder, you would type:
-
-   ```
-   cd ~/Documents/meseleekonomiTranscribe 
-   ```
-
-3. Once you're in the correct folder, set up the project by typing:
-
-   ```
+5. **Install project dependencies**:
+   ```bash
    poetry install
    ```
 
-   This may take a few minutes to complete.
-
-4. Set up the Whisper model by running the following command:
-
-   ```
+6. **Download the Whisper model**:
+   ```bash
    mkdir -p models/models--mlx-community--whisper-large-v2-mlx/
    ```
+   Then download the model files from [Hugging Face](https://huggingface.co/mlx-community/whisper-large-v2-mlx/tree/main) and place them in the created folder.
 
-   This script will create the necessary directories the Whisper model.
+## Usage
 
-   Go to https://huggingface.co/mlx-community/whisper-large-v2-mlx/tree/main and dowload the files to the created folder.
+### Web Interface (Recommended)
 
-## Using MeseleEkonomi Transcribe
-
-You're now ready to use the transcription tool! Here's how:
-
-1. In the Terminal, make sure you're in the meseleekonomiTranscribe folder.
-
-2. To start the web interface, type:
-
-   ```
+1. **Start the application**:
+   ```bash
    poetry run streamlit run app.py
    ```
 
-3. The web interface will open in your browser with three tabs:
+2. **Access the interface**:
+   - Open your browser at `http://localhost:8501`
+   - The interface will display with settings and input options
 
-   - **Local File**: Upload and transcribe local audio files
-     * Supports MP3, WAV, M4A, and OGG formats
-     * View transcript directly in browser
-     * Download transcript as TXT and SRT files
+3. **Configure settings**:
+   - **Output Directory**: Click "Browse" to select via Finder or enter path manually
+   - **Input Source**: Select from dropdown (Local File, YouTube URL, or Batch Processing)
+   - **Language**: Choose Turkish or English
+   - **Output Format**: Select desired output format(s)
 
-   - **YouTube URL**: Transcribe YouTube videos
-     * Enter a YouTube video URL
-     * View transcript directly in browser
-     * Files are saved automatically in the video directory
+4. **Process audio**:
+   - **Local File**: Click "Select File" to choose audio file, then "Transcribe"
+   - **YouTube URL**: Enter URL and click "Transcribe"
+   - **Batch Processing**: Select CSV file with URLs and click "Process Batch"
 
-   - **Batch Processing**: Process multiple YouTube videos
-     * Upload a CSV file with YouTube URLs in the third column
-     * Monitor progress with a progress bar
-     * Files are saved automatically for each video
+### Command Line Interface
 
-4. Choose your output directory:
-   - Click the "📁 Select Folder" button at the top of the interface
-   - Enter your desired output directory path
-   - The directory will be created if it doesn't exist
-   - Leave empty to use the default directory (./video/)
-   - You'll see a confirmation message when the directory is set
+For command-line usage:
+```bash
+poetry run python main.py
+```
 
-5. Monitor Progress:
-   - Watch the progress bar for overall completion
-   - See detailed status updates for each step
-   - View the total time taken for the process
-   - Get clear success/error messages with emojis
+Follow the prompts to:
+1. Choose input source (local file or YouTube URL)
+2. Select language (Turkish or English)
+3. Choose output format
+4. Enter file path or URL
 
-5. For local files:
-   - Upload your audio file using the file uploader
-   - Click "Transcribe Local File"
-   - View the transcript and download results
-   - Files will be saved to your chosen directory
+## Output Files
 
-6. For YouTube videos:
-   - Paste the video URL
-   - Click "Transcribe YouTube Video"
-   - View the transcript
-   - Files will be saved to your chosen directory
+The tool generates different output formats based on your selection:
 
-7. For batch processing:
-   - Prepare a CSV file with YouTube URLs in the third column
-   - Upload the CSV file
-   - Click "Process Batch" and monitor progress
-   - All files will be saved to your chosen directory
-
-The tool will create:
-- Text files (.txt) with plain transcripts
-- SRT files (.srt) with timestamped segments
-
-Example outputs are saved in these formats:
-
-Text file:
+### Text Format (.txt)
+Plain text transcript without timestamps:
 ```
 Hello, welcome to our podcast.
 Thank you for having me today.
 Let's talk about our topic...
 ```
 
-SRT file:
+### SRT Format (.srt)
+Subtitle format with timestamps:
 ```
 1
 00:00:00,000 --> 00:00:02,500
@@ -190,22 +129,97 @@ Hello, welcome to our podcast.
 2
 00:00:02,500 --> 00:00:04,800
 Thank you for having me today.
+```
 
-3
-00:00:04,800 --> 00:00:07,200
-Let's talk about our topic...
+### JSON Format (.json)
+Detailed segment information with timestamps and confidence scores:
+```json
+{
+  "text": "Full transcript text...",
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 2.5,
+      "text": "Hello, welcome to our podcast."
+    }
+  ]
+}
+```
+
+## Batch Processing
+
+For processing multiple YouTube videos:
+
+1. Create a CSV file with URLs in the third column
+2. Use the web interface's "Batch Processing" option
+3. Select your CSV file using the native file picker
+4. Monitor progress as each video is processed
+5. All transcripts are saved to your output directory
+
+## Project Structure
+
+```
+meseleekonomiTranscribe/
+├── app.py                 # Streamlit web interface
+├── main.py               # CLI interface
+├── transcription.py      # Core transcription logic
+├── audio_downloader.py   # YouTube download functionality
+├── interface.py          # CLI user interface
+├── utils.py             # Utility functions
+├── models/              # MLX Whisper model files
+└── video/              # Default output directory
 ```
 
 ## Troubleshooting
 
-If you encounter any issues:
+### Common Issues
 
-- Make sure you've followed all the setup steps correctly.
-- Check that you're in the correct folder when running commands.
-- If you're using a local file, make sure you've typed the file path correctly.
-- For YouTube videos, ensure you've entered the full URL correctly.
+1. **YouTube download errors**: 
+   - The tool includes automatic retry mechanisms
+   - Uses latest yt-dlp with enhanced extraction methods
+   - If persistent, check your internet connection
 
-If you continue to have problems, please contact your instructor or the support team for assistance.
+2. **Model not found**:
+   - Ensure model files are in `models/models--mlx-community--whisper-large-v2-mlx/`
+   - Download all required files from Hugging Face
 
-Happy transcribing!
-# meseleekonomiTranscribe
+3. **Permission errors**:
+   - Ensure you have write permissions for the output directory
+   - Try selecting a different output folder
+
+4. **Memory issues**:
+   - For long audio files, the tool processes in segments
+   - Close other applications if needed
+
+## Development
+
+### Running Tests
+```bash
+poetry run pytest
+```
+
+### Code Style
+```bash
+poetry run black .
+poetry run flake8
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Acknowledgments
+
+- MLX Whisper for the transcription model
+- Streamlit for the web framework
+- yt-dlp for YouTube downloading capabilities
+
+## Support
+
+For issues or questions, please open an issue on [GitHub](https://github.com/makgunay/meseleekonomiTranscribe/issues).
+
+Happy transcribing! 🎙️

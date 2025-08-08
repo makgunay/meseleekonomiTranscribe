@@ -1,4 +1,5 @@
 import os
+import json
 import mlx_whisper
 from utils import format_timedelta
 from datetime import timedelta
@@ -8,10 +9,14 @@ class Transcriber:
     def __init__(self):
         self.ui = UserInterface()
 
-    def transcribe_audio(self, audio_file):
+    def transcribe_audio(self, audio_file, language="tr"):
         try:
-            # Get transcription
-            output = mlx_whisper.transcribe(audio_file, path_or_hf_repo="./models/models--mlx-community--whisper-large-v2-mlx")
+            # Get transcription with specified language (passed via decode_options)
+            output = mlx_whisper.transcribe(
+                audio_file, 
+                path_or_hf_repo="./models/models--mlx-community--whisper-large-v2-mlx",
+                language=language  # This gets passed to decode_options
+            )
             if not output:
                 return None
             return output
@@ -42,3 +47,26 @@ class Transcriber:
             self.ui.display_success(f"SRT subtitles saved to {output_file}")
         except Exception as e:
             self.ui.display_error(f"An error occurred while saving the SRT file: {str(e)}")
+    
+    def save_json(self, transcript, filename):
+        output_file = f"{os.path.splitext(filename)[0]}_transcript.json"
+        try:
+            json_data = {
+                "text": transcript.get("text", ""),
+                "segments": []
+            }
+            
+            for segment in transcript.get("segments", []):
+                json_data["segments"].append({
+                    "id": segment.get("id"),
+                    "start": segment.get("start"),
+                    "end": segment.get("end"),
+                    "text": segment.get("text", "").strip()
+                })
+            
+            with open(output_file, 'w', encoding='utf-8') as file:
+                json.dump(json_data, file, ensure_ascii=False, indent=2)
+            
+            self.ui.display_success(f"JSON transcript saved to {output_file}")
+        except Exception as e:
+            self.ui.display_error(f"An error occurred while saving the JSON file: {str(e)}")

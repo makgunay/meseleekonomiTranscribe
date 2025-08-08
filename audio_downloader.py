@@ -12,6 +12,23 @@ def download_audio(url, output_path='./video/'):
             'preferredquality': '192',
         }],
         'outtmpl': output_path + '/[%(id)s] %(title)s.%(ext)s',
+        'quiet': False,
+        'no_warnings': False,
+        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'referer': 'https://www.youtube.com/',
+        'extractor_args': {'youtube': {
+            'player_client': ['ios', 'android'],
+            'skip': ['dash', 'hls']
+        }},
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
     }
 
     try:
