@@ -156,6 +156,20 @@ For processing multiple YouTube videos:
 4. Monitor progress as each video is processed
 5. All transcripts are saved to your output directory
 
+### CSV Format
+
+- The CSV must include a header row
+- YouTube URLs must be in the third column (index 2)
+- Empty or malformed rows are ignored
+
+Example:
+
+```csv
+title,channel,url
+Konutta şehir efsanesi,Mesele Ekonomi,https://www.youtube.com/watch?v=lX42-MSQ_rM
+2025 beklentileri,Mesele Ekonomi,https://www.youtube.com/watch?v=UuXCEDwVKMI
+```
+
 ## Project Structure
 
 ```

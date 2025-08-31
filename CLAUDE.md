@@ -55,3 +55,17 @@ This is a Python-based audio transcription application that uses MLX Whisper for
 - Transcripts are saved as `[filename]_transcript.txt` (plain text)
 - Subtitles are saved as `[filename].srt` (timestamped segments)
 - Default output directory: `./video/` (configurable in web interface)
+
+## CSV Format for Batch Processing
+
+- The CSV must include a header row
+- YouTube URLs must be in the third column (index 2)
+- Empty or malformed rows are ignored by the UI
+
+Example:
+
+```csv
+title,channel,url
+Konutta şehir efsanesi,Mesele Ekonomi,https://www.youtube.com/watch?v=lX42-MSQ_rM
+2025 beklentileri,Mesele Ekonomi,https://www.youtube.com/watch?v=UuXCEDwVKMI
+```

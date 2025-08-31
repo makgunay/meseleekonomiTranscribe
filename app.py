@@ -392,6 +392,18 @@ def main():
     elif input_source == "Batch Processing (CSV)":
         st.header("Batch Processing")
         st.write("Select a CSV file with YouTube URLs (URLs should be in the third column)")
+        with st.expander("CSV format requirements", expanded=True):
+            st.markdown(
+                "- The CSV must include a header row\n"
+                "- YouTube URLs must be in the third column (index 2)\n"
+                "- Empty or malformed rows are ignored"
+            )
+            st.code(
+                "title,channel,url\n"
+                "Konutta şehir efsanesi,Mesele Ekonomi,https://www.youtube.com/watch?v=lX42-MSQ_rM\n"
+                "2025 beklentileri,Mesele Ekonomi,https://www.youtube.com/watch?v=UuXCEDwVKMI\n",
+                language="csv"
+            )
         
         col1, col2 = st.columns([3, 1])
         with col1:
