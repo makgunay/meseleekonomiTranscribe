@@ -1,9 +1,42 @@
 import os
+import glob
 import yt_dlp
 from interface import UserInterface
 
-def download_audio(url, output_path='./video/'):
+def download_audio(url, output_path='./video/', skip_existing=True):
+    """
+    Download audio from YouTube URL.
+
+    Args:
+        url: YouTube video URL
+        output_path: Directory to save audio files
+        skip_existing: If True, skip download if file already exists
+
+    Returns:
+        Path to audio file or None if download failed
+    """
     ui = UserInterface()
+
+    # Ensure output path exists
+    os.makedirs(output_path, exist_ok=True)
+
+    # First, extract video info without downloading to check for existing file
+    if skip_existing:
+        try:
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+                info = ydl.extract_info(url, download=False)
+                video_id = info.get('id', '')
+
+                # Check if file with this video ID already exists
+                existing_files = glob.glob(os.path.join(output_path, f'[{video_id}]*.mp3'))
+                if existing_files:
+                    ui.display_success(f"File already exists, skipping download: {existing_files[0]}")
+                    return existing_files[0]
+        except Exception as e:
+            ui.display_error(f"Error checking for existing file: {str(e)}")
+            # Continue with download attempt
+
+    # Download configuration
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -11,7 +44,7 @@ def download_audio(url, output_path='./video/'):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'outtmpl': output_path + '/[%(id)s] %(title)s.%(ext)s',
+        'outtmpl': os.path.join(output_path, '[%(id)s] %(title)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
         # Use web client as primary, ios as fallback
