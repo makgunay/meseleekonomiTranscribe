@@ -48,12 +48,13 @@ A powerful audio transcription tool that supports local files, YouTube videos, a
 
 2. **Install required dependencies**:
    ```bash
-   brew install ffmpeg python git
+   brew install ffmpeg python git deno
    ```
+   (deno is a JavaScript runtime that yt-dlp needs to extract YouTube formats)
 
-3. **Install Poetry** (dependency manager):
+3. **Install uv** (dependency manager):
    ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
+   brew install uv
    ```
 
 4. **Clone the repository**:
@@ -64,7 +65,7 @@ A powerful audio transcription tool that supports local files, YouTube videos, a
 
 5. **Install project dependencies**:
    ```bash
-   poetry install
+   uv sync
    ```
 
 6. **Download the Whisper model**:
@@ -79,7 +80,7 @@ A powerful audio transcription tool that supports local files, YouTube videos, a
 
 1. **Start the application**:
    ```bash
-   poetry run streamlit run app.py
+   uv run streamlit run app.py
    ```
 
 2. **Access the interface**:
@@ -102,7 +103,7 @@ A powerful audio transcription tool that supports local files, YouTube videos, a
 
 For command-line usage:
 ```bash
-poetry run python main.py
+uv run python main.py
 ```
 
 Follow the prompts to:
@@ -309,13 +310,13 @@ meseleekonomiTranscribe/
 
 ### Running Tests
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
 ### Code Style
 ```bash
-poetry run black .
-poetry run flake8
+uv run black .
+uv run flake8
 ```
 
 ## Contributing

@@ -513,7 +513,7 @@ project/
 ├── analyze_duration.py     # Duration analysis utility
 ├── client_secret.json      # OAuth credentials (gitignored)
 ├── token.json             # Saved auth token (gitignored)
-├── pyproject.toml         # Poetry dependency configuration
+├── pyproject.toml         # uv dependency configuration
 ├── .gitignore             # Git exclusions (includes *.json)
 └── output/
     ├── {channel}_{date}_{count}.csv   # Video data CSV

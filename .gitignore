@@ -1,4 +1,4 @@
-__pychache__/
+__pycache__/
 .env
 
 #Model and Video folder is not included as it takes too much space
@@ -11,15 +11,9 @@ video/
 .idea/
 .DS_Store
 
-__pycache__/audio_downloader.cpython-312.pyc
-__pycache__/diarization.cpython-312.pyc
-
 # OAuth credentials and tokens
 client_secret.json
 token.json
-
-# Lock files
-uv.lock
 
 # Test CSVs
 *_20*.csv

@@ -6,36 +6,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Run the Streamlit Web Interface
 ```bash
-poetry run streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ### Run CLI Interface
 ```bash
-poetry run python main.py
+uv run python main.py
 ```
 
 ### Run Channel Extractor (CLI)
 ```bash
-poetry run python channel_extractor.py
+uv run python channel_extractor.py
 ```
 
 ### Install Dependencies
 ```bash
-poetry install
+uv sync
 ```
 
 ### Testing and Code Quality
+There is currently no test suite, and pytest/black/flake8 are **not** installed (there is no dev-dependency group in `pyproject.toml`). To use them, first add them:
 ```bash
-poetry run pytest          # Run tests
-poetry run black .         # Format code
-poetry run flake8          # Lint code
+uv add --dev pytest black flake8
 ```
 
 ## Architecture
 
 This is a Python-based audio transcription application that uses MLX Whisper for transcription. The codebase has three entry points:
 
-1. **Web Interface** (`app.py`) - Streamlit-based GUI with four tabs:
+1. **Web Interface** (`app.py`) - Streamlit-based GUI with an "Input Source" selector (`app.py:207`) offering four modes:
    - Local file upload and transcription
    - YouTube URL transcription
    - Batch processing from CSV files
@@ -71,7 +70,7 @@ This is a Python-based audio transcription application that uses MLX Whisper for
 - **yt-dlp**: YouTube video downloading with automatic retry mechanisms
 - **streamlit**: Web interface framework
 - **google-auth-oauthlib** & **google-api-python-client**: YouTube Data API v3 integration for channel extraction
-- **poetry**: Dependency management (Python >=3.12, <3.14)
+- **uv**: Dependency management (Python >=3.12, <3.14)
 
 ### Platform-Specific Features
 
@@ -85,6 +84,16 @@ This is a Python-based audio transcription application that uses MLX Whisper for
 - **JSON format**: `[filename]_transcript.json` - Full transcript with detailed segment metadata
 - Default output directory: `./video/` (configurable in web interface)
 - Output format can be selected individually or in combination via the web UI
+
+## Gotchas
+
+- **deno required for YouTube downloads**: yt-dlp 2026.x needs a JavaScript runtime to extract YouTube formats; without deno, only thumbnails are visible and downloads fail with "Requested format is not available". Install with `brew install deno`. Also, do not pass a hardcoded `player_client` in `extractor_args` — client requirements change and yt-dlp's defaults are maintained upstream.
+- **Model download required on fresh clone**: `models/` is gitignored. Download with:
+  ```bash
+  huggingface-cli download mlx-community/whisper-large-v2-mlx \
+    --local-dir ./models/models--mlx-community--whisper-large-v2-mlx
+  ```
+- **uv only**: This project migrated from Poetry to uv (July 2026). `uv.lock` is the only lock file and is checked in; do not reintroduce `poetry.lock` or `[tool.poetry]` sections in `pyproject.toml`. The project is marked `package = false` under `[tool.uv]` (flat script app, not an installable package).
 
 ## CSV Format for Batch Processing
 
