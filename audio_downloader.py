@@ -47,13 +47,6 @@ def download_audio(url, output_path='./video/', skip_existing=True):
         'outtmpl': os.path.join(output_path, '[%(id)s] %(title)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
-        # Use web client as primary, ios as fallback
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['web', 'ios'],
-                'player_skip': ['android'],  # Skip android client due to 403 errors
-            }
-        },
     }
 
     try:
