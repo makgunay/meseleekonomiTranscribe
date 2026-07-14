@@ -4,8 +4,6 @@ import time
 from transcription import Transcriber
 import audio_downloader
 import tempfile
-from datetime import datetime
-from pathlib import Path
 import subprocess
 import platform
 import csv
@@ -59,7 +57,7 @@ def select_folder_native():
                 return POSIX path of folderPath
             end tell
             '''
-            result = subprocess.run(['osascript', '-e', script], 
+            result = subprocess.run(['osascript', '-e', script],
                                   capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
                 folder_path = result.stdout.strip()
@@ -92,7 +90,7 @@ def select_file_native(file_types=[('Audio Files', '*.mp3 *.wav *.m4a *.ogg'), (
                 return POSIX path of audioFile
             end tell
             '''
-            result = subprocess.run(['osascript', '-e', script], 
+            result = subprocess.run(['osascript', '-e', script],
                                   capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
                 file_path = result.stdout.strip()
@@ -128,7 +126,7 @@ def select_csv_native():
                 return POSIX path of csvFile
             end tell
             '''
-            result = subprocess.run(['osascript', '-e', script], 
+            result = subprocess.run(['osascript', '-e', script],
                                   capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
                 file_path = result.stdout.strip()
@@ -152,8 +150,53 @@ def select_csv_native():
         st.error(f"Error opening file picker: {str(e)}")
         return None
 
+def save_outputs(transcriber, transcription_result, audio_file, output_format):
+    """Save the selected output formats next to the audio file.
+
+    Returns a list of (label, path, download_filename) for the files written."""
+    entries = []
+    base = os.path.splitext(audio_file)[0]
+    name = os.path.basename(base)
+
+    if output_format in ["All Formats", "Text Only", "Text + JSON"]:
+        transcriber.save_transcript(transcription_result, audio_file)
+        entries.append(("Download transcript (TXT)", f"{base}_transcript.txt", f"{name}_transcript.txt"))
+
+    if output_format in ["All Formats", "SRT Only", "SRT + JSON"]:
+        transcriber.save_srt(transcription_result['segments'], audio_file)
+        entries.append(("Download subtitles (SRT)", f"{base}.srt", f"{name}.srt"))
+
+    if output_format in ["All Formats", "JSON Only", "Text + JSON", "SRT + JSON"]:
+        transcriber.save_json(transcription_result, audio_file)
+        entries.append(("Download transcript (JSON)", f"{base}_transcript.json", f"{name}_transcript.json"))
+
+    return entries
+
+def render_last_result(input_source):
+    """Render the most recent transcription result.
+
+    Lives outside the button handlers so the transcript and its download
+    buttons survive Streamlit reruns (every widget interaction reruns the
+    script, and button state only lasts a single run)."""
+    result = st.session_state.get('last_result')
+    if not result or result['mode'] != input_source:
+        return
+
+    st.divider()
+    st.subheader("Transcript")
+    st.caption(f"{result['source']} · {result['duration']} · saved to {result['output_dir']}")
+    st.text_area("Full transcript", result['text'], height=300, key="last_result_text")
+
+    files = [f for f in result['files'] if os.path.exists(f[1])]
+    if files:
+        cols = st.columns(len(files))
+        for col, (label, path, filename) in zip(cols, files):
+            with open(path, 'r', encoding='utf-8') as f:
+                col.download_button(label, f.read(), file_name=filename, key=f"dl_{filename}")
+
 def main():
-    st.title("MeseleEkonomi Transcribe 🎙️")
+    st.logo("MeseleEkonomi_1.png", size="large")
+    st.title("MeseleEkonomi Transcribe")
     st.write("Transcribe audio from local files or YouTube videos")
 
     # Initialize session state for persistent output directory
@@ -172,232 +215,158 @@ def main():
     if 'batch_download_complete' not in st.session_state:
         st.session_state.batch_download_complete = False
 
-    # Status containers
-    status_container = st.empty()
-    progress_container = st.empty()
-    time_container = st.empty()
+    if 'last_result' not in st.session_state:
+        st.session_state.last_result = None
 
-    st.subheader("Settings")
-    
-    # First row: Output directory with browser
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        output_dir = st.text_input("Output Directory", 
+    with st.sidebar:
+        st.header("Settings")
+
+        output_dir = st.text_input("Output directory",
                                   value=st.session_state.output_dir,
-                                  placeholder="Enter path or click Browse to select folder",
-                                  help="Enter the full path where you want to save the output files",
+                                  placeholder="Enter path or browse to select a folder",
+                                  help="Full path where output files are saved",
                                   key="output_dir_input")
-    with col2:
-        st.write("")  # Empty space for alignment
-        st.write("")  # Empty space for alignment
-        if st.button("📂 Browse", key="browse_main", help="Open Finder to select folder"):
+        if st.button("Browse…", key="browse_main", help="Choose a folder in Finder"):
             selected_folder = select_folder_native()
             if selected_folder:
                 st.session_state.output_dir = selected_folder
                 st.rerun()
-    
-    # Update session state if manually entered
-    if output_dir != st.session_state.output_dir:
-        st.session_state.output_dir = output_dir
-    
-    # Second row: Input source, Language and Output Format
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        input_source = st.selectbox("Input Source",
+
+        # Update session state if manually entered
+        if output_dir != st.session_state.output_dir:
+            st.session_state.output_dir = output_dir
+
+        # Verify output directory quietly; only failure needs attention
+        if st.session_state.output_dir:
+            try:
+                os.makedirs(st.session_state.output_dir, exist_ok=True)
+                st.caption(f"Saving to {st.session_state.output_dir}")
+            except Exception as e:
+                st.error(f"Cannot create output directory: {str(e)}")
+                st.session_state.output_dir = None
+
+        input_source = st.selectbox("Input source",
                                    ["Local File", "YouTube URL", "Batch Processing (CSV)", "Channel Extractor"],
                                    key="input_source")
-    
-    with col2:
-        language_choice = st.selectbox("Language", 
+
+        language_choice = st.selectbox("Language",
                                       ["Turkish", "English"],
                                       key="language_select")
         language = 'tr' if language_choice == "Turkish" else 'en'
-    
-    with col3:
-        output_format = st.selectbox("Output Format", 
+
+        output_format = st.selectbox("Output format",
                                     ["All Formats", "Text Only", "SRT Only", "JSON Only", "Text + JSON", "SRT + JSON"],
                                     key="output_format")
-    
-    # Verify output directory
-    if st.session_state.output_dir:
-        try:
-            os.makedirs(st.session_state.output_dir, exist_ok=True)
-            st.success(f"✅ Output directory: {st.session_state.output_dir}")
-        except Exception as e:
-            st.error(f"❌ Error creating output directory: {str(e)}")
-            st.session_state.output_dir = None
 
     # Initialize transcriber
     transcriber = Transcriber()
 
-    st.divider()
-
     # Display interface based on selected input source
     if input_source == "Local File":
-        st.header("Local Audio File")
-        
-        col1, col2 = st.columns([3, 1])
+        st.header("Local audio file")
+
+        col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
         with col1:
-            # Display selected file if any
-            if st.session_state.selected_file:
-                st.text_input("Selected File", value=st.session_state.selected_file, disabled=True)
-            else:
-                st.text_input("Selected File", value="No file selected", disabled=True)
-        
+            st.text_input("Selected file",
+                          value=st.session_state.selected_file or "No file selected",
+                          disabled=True)
+
         with col2:
-            st.write("")  # Empty space for alignment
-            st.write("")  # Empty space for alignment
-            if st.button("📄 Select File", key="select_file_btn"):
+            if st.button("Select file…", key="select_file_btn"):
                 selected_file = select_file_native()
                 if selected_file:
                     st.session_state.selected_file = selected_file
                     st.rerun()
-        
-        if st.session_state.selected_file and os.path.exists(st.session_state.selected_file):
-            if st.button("🎯 Transcribe", type="primary", key="transcribe_local"):
-                start_time = time.time()
-                status_container.info("📝 Starting transcription process...")
-                progress_bar = progress_container.progress(0)
-                
-                file_path = st.session_state.selected_file
-                
-                # Transcribe
-                progress_bar.progress(30)
-                status_container.info(f"🎯 Transcribing audio (Language: {language_choice})...")
-                transcription_result = transcriber.transcribe_audio(file_path, language=language)
-                
-                if transcription_result:
-                    progress_bar.progress(70)
-                    status_container.info("📊 Processing results...")
-                    
-                    # Display results
-                    st.success("✨ Transcription completed!")
-                    st.subheader("Transcript")
-                    st.text_area("Full Transcript", transcription_result['text'], height=300)
-                    
-                    # Save and offer downloads
-                    try:
-                        progress_bar.progress(90)
-                        status_container.info("💾 Saving output files...")
-                        
-                        # Ensure output directory exists
-                        output_path = st.session_state.output_dir or './video/'
-                        os.makedirs(output_path, exist_ok=True)
-                        
-                        # Copy file to output directory if it's not already there
-                        output_file_path = os.path.join(output_path, os.path.basename(file_path))
-                        if file_path != output_file_path:
-                            import shutil
-                            shutil.copy2(file_path, output_file_path)
-                            file_path = output_file_path
-                        
-                        # Save files based on selected format
-                        if output_format in ["All Formats", "Text Only", "Text + JSON"]:
-                            transcript_path = f"{os.path.splitext(file_path)[0]}_transcript.txt"
-                            transcriber.save_transcript(transcription_result, file_path)
-                            with open(transcript_path, 'r', encoding='utf-8') as f:
-                                transcript_content = f.read()
-                            st.download_button(
-                                "📄 Download Transcript (TXT)",
-                                transcript_content,
-                                file_name=f"{os.path.splitext(os.path.basename(file_path))[0]}_transcript.txt"
-                            )
 
-                        if output_format in ["All Formats", "SRT Only", "SRT + JSON"]:
-                            srt_path = f"{os.path.splitext(file_path)[0]}.srt"
-                            transcriber.save_srt(transcription_result['segments'], file_path)
-                            with open(srt_path, 'r', encoding='utf-8') as f:
-                                srt_content = f.read()
-                            st.download_button(
-                                "🎬 Download Subtitles (SRT)",
-                                srt_content,
-                                file_name=f"{os.path.splitext(os.path.basename(file_path))[0]}.srt"
-                            )
-                        
-                        if output_format in ["All Formats", "JSON Only", "Text + JSON", "SRT + JSON"]:
-                            json_path = f"{os.path.splitext(file_path)[0]}_transcript.json"
-                            transcriber.save_json(transcription_result, file_path)
-                            with open(json_path, 'r', encoding='utf-8') as f:
-                                json_content = f.read()
-                            st.download_button(
-                                "📊 Download Transcript (JSON)",
-                                json_content,
-                                file_name=f"{os.path.splitext(os.path.basename(file_path))[0]}_transcript.json"
-                            )
-                            
-                        progress_bar.progress(100)
-                        status_container.success(f"✅ Files saved to: {output_path}")
-                    except Exception as e:
-                        st.error(f"❌ Error saving files: {str(e)}")
-                else:
-                    status_container.error("❌ Transcription failed.")
-                    progress_bar.empty()
-                
-                # Display total time taken
-                end_time = time.time()
-                time_container.info(f"⏱️ Total time: {format_time(end_time - start_time)}")
+        if st.session_state.selected_file and os.path.exists(st.session_state.selected_file):
+            if st.button("Transcribe", type="primary", key="transcribe_local"):
+                start_time = time.time()
+                file_path = st.session_state.selected_file
+
+                with st.status("Transcribing…", expanded=True) as status:
+                    st.write(f"Transcribing audio ({language_choice})…")
+                    transcription_result = transcriber.transcribe_audio(file_path, language=language)
+
+                    if transcription_result:
+                        st.write("Saving output files…")
+                        try:
+                            # Ensure output directory exists
+                            output_path = st.session_state.output_dir or './video/'
+                            os.makedirs(output_path, exist_ok=True)
+
+                            # Copy file to output directory if it's not already there
+                            output_file_path = os.path.join(output_path, os.path.basename(file_path))
+                            if file_path != output_file_path:
+                                import shutil
+                                shutil.copy2(file_path, output_file_path)
+                                file_path = output_file_path
+
+                            files = save_outputs(transcriber, transcription_result, file_path, output_format)
+                            elapsed = format_time(time.time() - start_time)
+                            st.session_state.last_result = {
+                                'mode': "Local File",
+                                'source': os.path.basename(file_path),
+                                'text': transcription_result['text'],
+                                'files': files,
+                                'output_dir': output_path,
+                                'duration': elapsed,
+                            }
+                            status.update(label=f"Transcription complete ({elapsed})",
+                                          state="complete", expanded=False)
+                        except Exception as e:
+                            status.update(label="Saving failed", state="error")
+                            st.error(f"Could not save output files: {str(e)}")
+                    else:
+                        status.update(label="Transcription failed", state="error")
+                        st.error("Transcription failed — confirm the file is a supported audio "
+                                 "format and check the terminal for details.")
 
     elif input_source == "YouTube URL":
-        st.header("YouTube Video")
-        youtube_url = st.text_input("Enter YouTube URL", key="youtube_url_input")
-        
+        st.header("YouTube video")
+        youtube_url = st.text_input("YouTube URL", key="youtube_url_input")
+
         if youtube_url:
-            if st.button("🎯 Transcribe", type="primary", key="transcribe_youtube"):
+            if st.button("Transcribe", type="primary", key="transcribe_youtube"):
                 start_time = time.time()
-                status_container.info("🚀 Starting YouTube processing...")
-                progress_bar = progress_container.progress(0)
-                
-                # Download audio
-                status_container.info("⬇️ Downloading YouTube video...")
-                progress_bar.progress(20)
-                output_path = st.session_state.output_dir or './video/'
-                audio_file = audio_downloader.download_audio(youtube_url, output_path)
-                
-                if audio_file:
-                    # Transcribe
-                    status_container.info(f"🎯 Transcribing audio (Language: {language_choice})...")
-                    progress_bar.progress(50)
-                    transcription_result = transcriber.transcribe_audio(audio_file, language=language)
-                    
-                    if transcription_result:
-                        # Display results
-                        progress_bar.progress(80)
-                        status_container.info("📊 Processing results...")
-                        st.success("✨ Transcription completed!")
-                        st.subheader("Transcript")
-                        st.text_area("Full Transcript", transcription_result['text'], height=300)
-                        
-                        # Save files
-                        try:
-                            status_container.info("💾 Saving output files...")
-                            # Save files based on selected format
-                            if output_format in ["All Formats", "Text Only", "Text + JSON"]:
-                                transcriber.save_transcript(transcription_result, audio_file)
-                            
-                            if output_format in ["All Formats", "SRT Only", "SRT + JSON"]:
-                                transcriber.save_srt(transcription_result['segments'], audio_file)
-                            
-                            if output_format in ["All Formats", "JSON Only", "Text + JSON", "SRT + JSON"]:
-                                transcriber.save_json(transcription_result, audio_file)
-                            
-                            progress_bar.progress(100)
-                            status_container.success(f"✅ Files saved to: {os.path.dirname(audio_file)}")
-                        except Exception as e:
-                            st.error(f"❌ Error saving files: {str(e)}")
+
+                with st.status("Transcribing…", expanded=True) as status:
+                    st.write("Downloading audio from YouTube…")
+                    output_path = st.session_state.output_dir or './video/'
+                    audio_file = audio_downloader.download_audio(youtube_url, output_path)
+
+                    if audio_file:
+                        st.write(f"Transcribing audio ({language_choice})…")
+                        transcription_result = transcriber.transcribe_audio(audio_file, language=language)
+
+                        if transcription_result:
+                            st.write("Saving output files…")
+                            try:
+                                files = save_outputs(transcriber, transcription_result, audio_file, output_format)
+                                elapsed = format_time(time.time() - start_time)
+                                st.session_state.last_result = {
+                                    'mode': "YouTube URL",
+                                    'source': os.path.basename(audio_file),
+                                    'text': transcription_result['text'],
+                                    'files': files,
+                                    'output_dir': os.path.dirname(audio_file),
+                                    'duration': elapsed,
+                                }
+                                status.update(label=f"Transcription complete ({elapsed})",
+                                              state="complete", expanded=False)
+                            except Exception as e:
+                                status.update(label="Saving failed", state="error")
+                                st.error(f"Could not save output files: {str(e)}")
+                        else:
+                            status.update(label="Transcription failed", state="error")
+                            st.error("Transcription failed — the audio downloaded but could not "
+                                     "be transcribed. Check the terminal for details.")
                     else:
-                        status_container.error("❌ Transcription failed.")
-                        progress_bar.empty()
-                else:
-                    status_container.error("❌ Failed to download YouTube video.")
-                    progress_bar.empty()
-                
-                # Display total time taken
-                end_time = time.time()
-                time_container.info(f"⏱️ Total time: {format_time(end_time - start_time)}")
+                        status.update(label="Download failed", state="error")
+                        st.error("Could not download this video — check the URL and your "
+                                 "connection. yt-dlp output is in the terminal.")
 
     elif input_source == "Batch Processing (CSV)":
-        st.header("Batch Processing")
+        st.header("Batch processing")
         st.write("Select a CSV file with YouTube URLs (URLs should be in the third column)")
         with st.expander("CSV format requirements", expanded=True):
             st.markdown(
@@ -413,34 +382,30 @@ def main():
             )
 
         # Processing mode selection
-        st.subheader("Processing Mode")
         processing_mode = st.radio(
-            "Choose how to process the batch:",
-            ["Sequential (Download and transcribe each video one by one)",
-             "Download-First (Download all videos, then transcribe all)"],
+            "Processing mode",
+            ["Sequential — download and transcribe one video at a time",
+             "Download first — download everything, then transcribe"],
             key="batch_processing_mode",
-            help="Sequential mode processes videos one at a time. Download-First mode downloads all videos first, then prompts before transcribing."
+            help="Download-first mode fetches all audio up front and waits for you before transcribing."
         )
 
-        col1, col2 = st.columns([3, 1])
+        col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
         with col1:
-            # Display selected CSV file if any
-            if st.session_state.selected_csv:
-                st.text_input("Selected CSV", value=st.session_state.selected_csv, disabled=True)
-            else:
-                st.text_input("Selected CSV", value="No file selected", disabled=True)
-        
+            st.text_input("Selected CSV",
+                          value=st.session_state.selected_csv or "No file selected",
+                          disabled=True)
+
         with col2:
-            st.write("")  # Empty space for alignment
-            st.write("")  # Empty space for alignment
-            if st.button("📋 Select CSV", key="select_csv_btn"):
+            if st.button("Select CSV…", key="select_csv_btn"):
                 selected_csv = select_csv_native()
                 if selected_csv:
                     st.session_state.selected_csv = selected_csv
                     st.rerun()
-        
+
         if st.session_state.selected_csv and os.path.exists(st.session_state.selected_csv):
             # Preview CSV content
+            urls = []
             try:
                 with open(st.session_state.selected_csv, 'r', newline='', encoding='utf-8') as csvfile:
                     reader = csv.reader(csvfile)
@@ -450,16 +415,14 @@ def main():
                         st.info(f"Found {len(urls)} URLs in CSV file")
             except Exception as e:
                 st.error(f"Error reading CSV: {str(e)}")
-                urls = []
-            
+
             # Sequential mode (original behavior)
-            if processing_mode == "Sequential (Download and transcribe each video one by one)":
-                if st.button("🎯 Process Batch", type="primary", key="process_batch_sequential"):
+            if processing_mode.startswith("Sequential"):
+                if st.button("Download and transcribe all", type="primary", key="process_batch_sequential"):
                     start_time = time.time()
-                    status_container.info("🚀 Starting batch processing (Sequential mode)...")
 
                     if urls:
-                        progress_bar = progress_container.progress(0)
+                        progress_bar = st.progress(0)
                         status_text = st.empty()
 
                         output_path = st.session_state.output_dir or './video/'
@@ -467,24 +430,14 @@ def main():
                         failed = 0
 
                         for i, url in enumerate(urls):
-                            status_container.info(f"🎯 Processing URL {i+1}/{len(urls)}")
-                            status_text.text(f"Current URL: {url}")
+                            status_text.text(f"Processing {i+1}/{len(urls)}: {url}")
 
                             # Download and transcribe
                             audio_file = audio_downloader.download_audio(url, output_path)
                             if audio_file:
                                 transcription_result = transcriber.transcribe_audio(audio_file, language=language)
                                 if transcription_result:
-                                    # Save files based on selected format
-                                    if output_format in ["All Formats", "Text Only", "Text + JSON"]:
-                                        transcriber.save_transcript(transcription_result, audio_file)
-
-                                    if output_format in ["All Formats", "SRT Only", "SRT + JSON"]:
-                                        transcriber.save_srt(transcription_result['segments'], audio_file)
-
-                                    if output_format in ["All Formats", "JSON Only", "Text + JSON", "SRT + JSON"]:
-                                        transcriber.save_json(transcription_result, audio_file)
-
+                                    save_outputs(transcriber, transcription_result, audio_file, output_format)
                                     successful += 1
                                 else:
                                     failed += 1
@@ -494,26 +447,20 @@ def main():
                             progress_bar.progress((i + 1) / len(urls))
 
                         status_text.empty()
-                        progress_bar.progress(100)
-                        status_container.success("✅ Batch processing completed!")
-                        st.success(f"📁 Processed {successful} files successfully, {failed} failed. Files saved to: {output_path}")
+                        st.success(f"Batch complete in {format_time(time.time() - start_time)}: "
+                                   f"{successful} transcribed, {failed} failed. Files saved to {output_path}")
                     else:
-                        status_container.error("❌ No valid URLs found in CSV file.")
+                        st.error("No valid URLs found in the CSV file — check that URLs are in the third column.")
 
-                    # Display total time taken
-                    end_time = time.time()
-                    time_container.info(f"⏱️ Total time: {format_time(end_time - start_time)}")
-
-            # Download-First mode (new behavior)
+            # Download-first mode
             else:
                 # Phase 1: Download all videos
                 if not st.session_state.batch_download_complete:
-                    if st.button("⬇️ Download All Videos", type="primary", key="download_all_videos"):
+                    if st.button("Download all videos", type="primary", key="download_all_videos"):
                         start_time = time.time()
-                        status_container.info("🚀 Starting download phase...")
 
                         if urls:
-                            progress_bar = progress_container.progress(0)
+                            progress_bar = st.progress(0)
                             status_text = st.empty()
 
                             output_path = st.session_state.output_dir or './video/'
@@ -521,8 +468,7 @@ def main():
                             failed_downloads = 0
 
                             for i, url in enumerate(urls):
-                                status_container.info(f"⬇️ Downloading video {i+1}/{len(urls)}")
-                                status_text.text(f"Current URL: {url}")
+                                status_text.text(f"Downloading {i+1}/{len(urls)}: {url}")
 
                                 audio_file = audio_downloader.download_audio(url, output_path)
                                 if audio_file:
@@ -533,34 +479,28 @@ def main():
                                 progress_bar.progress((i + 1) / len(urls))
 
                             status_text.empty()
-                            progress_bar.progress(100)
 
                             # Store downloaded files in session state
                             st.session_state.downloaded_files = downloaded_files
                             st.session_state.batch_download_complete = True
 
-                            status_container.success("✅ Download phase completed!")
-                            st.success(f"📥 Downloaded {len(downloaded_files)} files successfully, {failed_downloads} failed.")
-
-                            # Display download time
-                            end_time = time.time()
-                            time_container.info(f"⏱️ Download time: {format_time(end_time - start_time)}")
+                            st.success(f"Downloaded {len(downloaded_files)} files in "
+                                       f"{format_time(time.time() - start_time)}, {failed_downloads} failed.")
 
                             st.rerun()
                         else:
-                            status_container.error("❌ No valid URLs found in CSV file.")
+                            st.error("No valid URLs found in the CSV file — check that URLs are in the third column.")
 
                 # Phase 2: Transcribe all downloaded videos
                 else:
-                    st.info(f"✅ {len(st.session_state.downloaded_files)} videos have been downloaded and are ready for transcription.")
+                    st.info(f"{len(st.session_state.downloaded_files)} videos are downloaded and ready for transcription.")
 
                     col_a, col_b = st.columns(2)
                     with col_a:
-                        if st.button("🎯 Start Transcription", type="primary", key="start_transcription"):
+                        if st.button("Transcribe downloaded videos", type="primary", key="start_transcription"):
                             start_time = time.time()
-                            status_container.info("🚀 Starting transcription phase...")
 
-                            progress_bar = progress_container.progress(0)
+                            progress_bar = st.progress(0)
                             status_text = st.empty()
 
                             successful = 0
@@ -568,21 +508,11 @@ def main():
                             downloaded_files = st.session_state.downloaded_files
 
                             for i, audio_file in enumerate(downloaded_files):
-                                status_container.info(f"🎯 Transcribing file {i+1}/{len(downloaded_files)}")
-                                status_text.text(f"Current file: {os.path.basename(audio_file)}")
+                                status_text.text(f"Transcribing {i+1}/{len(downloaded_files)}: {os.path.basename(audio_file)}")
 
                                 transcription_result = transcriber.transcribe_audio(audio_file, language=language)
                                 if transcription_result:
-                                    # Save files based on selected format
-                                    if output_format in ["All Formats", "Text Only", "Text + JSON"]:
-                                        transcriber.save_transcript(transcription_result, audio_file)
-
-                                    if output_format in ["All Formats", "SRT Only", "SRT + JSON"]:
-                                        transcriber.save_srt(transcription_result['segments'], audio_file)
-
-                                    if output_format in ["All Formats", "JSON Only", "Text + JSON", "SRT + JSON"]:
-                                        transcriber.save_json(transcription_result, audio_file)
-
+                                    save_outputs(transcriber, transcription_result, audio_file, output_format)
                                     successful += 1
                                 else:
                                     failed += 1
@@ -590,35 +520,31 @@ def main():
                                 progress_bar.progress((i + 1) / len(downloaded_files))
 
                             status_text.empty()
-                            progress_bar.progress(100)
-                            status_container.success("✅ Batch transcription completed!")
-                            st.success(f"📁 Transcribed {successful} files successfully, {failed} failed. Files saved to: {st.session_state.output_dir or './video/'}")
+                            st.success(f"Batch complete in {format_time(time.time() - start_time)}: "
+                                       f"{successful} transcribed, {failed} failed. Files saved to "
+                                       f"{st.session_state.output_dir or './video/'}")
 
                             # Reset state
                             st.session_state.downloaded_files = []
                             st.session_state.batch_download_complete = False
 
-                            # Display transcription time
-                            end_time = time.time()
-                            time_container.info(f"⏱️ Transcription time: {format_time(end_time - start_time)}")
-
                     with col_b:
-                        if st.button("🔄 Reset and Start Over", key="reset_batch"):
+                        if st.button("Reset and start over", key="reset_batch"):
                             st.session_state.downloaded_files = []
                             st.session_state.batch_download_complete = False
                             st.rerun()
 
     elif input_source == "Channel Extractor":
-        st.header("Channel Extractor")
+        st.header("Channel extractor")
         st.write("Extract all videos from a YouTube channel and create a CSV file for batch processing")
 
         with st.expander("How to use", expanded=True):
             st.markdown(
-                "1. Enter a YouTube Channel ID (format: UCxxxxxxxxxxxxxxxxxx)\n"
-                "2. Click 'Extract Channel Data' to fetch all videos\n"
+                "1. Enter a YouTube channel ID (format: UCxxxxxxxxxxxxxxxxxx)\n"
+                "2. Click 'Extract channel data' to fetch all videos\n"
                 "3. Data will be saved as CSV and JSON in a channel-specific folder\n"
                 "4. The CSV will include a 'downloaded' flag for tracking\n"
-                "5. Use the generated CSV with 'Batch Processing (CSV)' tab"
+                "5. Use the generated CSV with the 'Batch Processing (CSV)' input source"
             )
             st.info("First-time setup: You'll need to authenticate with Google OAuth. This requires `client_secret.json` from Google Cloud Console.")
 
@@ -632,103 +558,77 @@ def main():
 
         # Channel ID input
         channel_id = st.text_input(
-            "YouTube Channel ID",
+            "YouTube channel ID",
             placeholder="UCW4Y4bPuafXwVEs0oly5vdw",
             help="Enter the channel ID (starts with UC, typically 24 characters)",
             key="channel_id_input"
         )
 
-        if st.button("🔍 Extract Channel Data", type="primary", key="extract_channel", disabled=not channel_id):
-            if not channel_id:
-                st.error("❌ Please enter a channel ID")
-            elif not channel_id.startswith("UC") or len(channel_id) != 24:
-                st.warning("⚠️ Channel ID should start with 'UC' and be 24 characters long")
+        if st.button("Extract channel data", type="primary", key="extract_channel", disabled=not channel_id):
+            if not channel_id.startswith("UC") or len(channel_id) != 24:
+                st.warning("Channel ID should start with 'UC' and be 24 characters long")
             else:
                 start_time = time.time()
-                status_container.info("🚀 Starting channel extraction...")
-                progress_bar = progress_container.progress(0)
 
-                try:
-                    # Initialize extractor
-                    extractor = ChannelExtractor()
-                    extractor.base_output_path = st.session_state.output_dir or './video/'
+                with st.status("Extracting channel data…", expanded=True) as status:
+                    try:
+                        # Initialize extractor
+                        extractor = ChannelExtractor()
+                        extractor.base_output_path = st.session_state.output_dir or './video/'
 
-                    # Authenticate
-                    status_container.info("🔐 Authenticating with YouTube API...")
-                    progress_bar.progress(10)
-                    if not extractor.authenticate():
-                        status_container.error("❌ Authentication failed. Please check client_secret.json")
-                        progress_bar.empty()
-                    else:
-                        # Get channel info
-                        status_container.info("📊 Fetching channel information...")
-                        progress_bar.progress(20)
-                        channel_info = extractor.get_channel_info(channel_id)
-
-                        if not channel_info:
-                            status_container.error("❌ Channel not found or error occurred")
-                            progress_bar.empty()
+                        # Authenticate
+                        st.write("Authenticating with YouTube API…")
+                        if not extractor.authenticate():
+                            status.update(label="Authentication failed", state="error")
+                            st.error("Authentication failed — check that client_secret.json exists "
+                                     "in the project root and is valid.")
                         else:
-                            st.info(f"Channel: {channel_info['channel_name']}")
+                            # Get channel info
+                            st.write("Fetching channel information…")
+                            channel_info = extractor.get_channel_info(channel_id)
 
-                            # Get all videos
-                            status_container.info("📥 Fetching all videos from channel...")
-                            progress_bar.progress(40)
-
-                            videos = extractor.get_all_videos(channel_info['uploads_playlist_id'])
-
-                            if videos:
-                                progress_bar.progress(80)
-                                status_container.info("💾 Saving channel data...")
-
-                                # Save data
-                                csv_path, json_path = extractor.save_channel_data(
-                                    videos, channel_info['channel_name']
-                                )
-
-                                # Get folder path
-                                folder_path = os.path.dirname(csv_path)
-
-                                # Update session state
-                                st.session_state.channel_extracted = True
-                                st.session_state.channel_csv_path = csv_path
-                                st.session_state.channel_folder = folder_path
-
-                                progress_bar.progress(100)
-                                status_container.success("✅ Channel extraction completed!")
-
-                                st.success(f"📁 Extracted {len(videos)} videos from '{channel_info['channel_name']}'")
-                                st.info(f"Files saved to: {folder_path}")
-
-                                # Display download stats
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.metric("Total Videos", len(videos))
-                                with col2:
-                                    st.metric("CSV Path", os.path.basename(csv_path))
+                            if not channel_info:
+                                status.update(label="Channel not found", state="error")
+                                st.error("Channel not found — check the channel ID.")
                             else:
-                                status_container.error("❌ No videos found or error occurred")
-                                progress_bar.empty()
+                                st.write(f"Fetching all videos from '{channel_info['channel_name']}'…")
+                                videos = extractor.get_all_videos(channel_info['uploads_playlist_id'])
 
-                            # Display time taken
-                            end_time = time.time()
-                            time_container.info(f"⏱️ Extraction time: {format_time(end_time - start_time)}")
+                                if videos:
+                                    st.write("Saving channel data…")
+                                    csv_path, json_path = extractor.save_channel_data(
+                                        videos, channel_info['channel_name']
+                                    )
 
-                except Exception as e:
-                    status_container.error(f"❌ Error during extraction: {str(e)}")
-                    progress_bar.empty()
-                    import traceback
-                    st.error(traceback.format_exc())
+                                    # Update session state
+                                    st.session_state.channel_extracted = True
+                                    st.session_state.channel_csv_path = csv_path
+                                    st.session_state.channel_folder = os.path.dirname(csv_path)
+
+                                    elapsed = format_time(time.time() - start_time)
+                                    status.update(label=f"Extracted {len(videos)} videos from "
+                                                        f"'{channel_info['channel_name']}' ({elapsed})",
+                                                  state="complete", expanded=False)
+                                else:
+                                    status.update(label="No videos found", state="error")
+                                    st.error("No videos found for this channel — check the channel ID "
+                                             "and the terminal for API errors.")
+
+                    except Exception as e:
+                        import traceback
+                        print(traceback.format_exc())
+                        status.update(label="Extraction failed", state="error")
+                        st.error(f"Extraction failed: {str(e)}. Full details are in the terminal.")
 
         # Show batch download option if extraction is complete
         if st.session_state.channel_extracted and st.session_state.channel_csv_path:
             st.divider()
-            st.subheader("Download Videos from Channel")
+            st.subheader("Download videos from channel")
 
             csv_path = st.session_state.channel_csv_path
             folder_path = st.session_state.channel_folder
 
-            st.info(f"📋 Channel CSV: {os.path.basename(csv_path)}")
+            st.caption(f"Channel CSV: {csv_path}")
 
             # Read CSV to show stats
             try:
@@ -740,7 +640,7 @@ def main():
 
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Total Videos", total_videos)
+                        st.metric("Total videos", total_videos)
                     with col2:
                         st.metric("Downloaded", downloaded_count)
                     with col3:
@@ -748,17 +648,16 @@ def main():
             except Exception as e:
                 st.error(f"Error reading CSV: {str(e)}")
 
-            if st.button("⬇️ Download All Videos", type="primary", key="download_channel_videos"):
+            if st.button("Download all videos", type="primary", key="download_channel_videos"):
                 start_time = time.time()
-                status_container.info("🚀 Starting batch download...")
+
+                progress_bar = st.progress(0)
+                status_text = st.empty()
 
                 try:
                     with open(csv_path, 'r', encoding='utf-8-sig') as f:
                         reader = csv.DictReader(f)
                         rows = list(reader)
-
-                    progress_bar = progress_container.progress(0)
-                    status_text = st.empty()
 
                     # Create live metric display
                     metrics_container = st.empty()
@@ -784,16 +683,15 @@ def main():
                         with metrics_container.container():
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("✅ Downloaded", downloaded, delta=f"+{downloaded - initial_downloaded}")
+                                st.metric("Downloaded", downloaded, delta=f"+{downloaded - initial_downloaded}")
                             with col2:
-                                st.metric("⏭️ Skipped", skipped)
+                                st.metric("Skipped", skipped)
                             with col3:
-                                st.metric("❌ Failed", failed)
+                                st.metric("Failed", failed)
                             with col4:
-                                st.metric("📊 Remaining", len(rows) - i)
+                                st.metric("Remaining", len(rows) - i)
 
-                        status_container.info(f"⬇️ Processing video {i+1}/{len(rows)}")
-                        status_text.text(f"Current: {video_title[:50]}...")
+                        status_text.text(f"Processing {i+1}/{len(rows)}: {video_title[:50]}")
 
                         # Skip if already downloaded
                         if row.get('downloaded', '').lower() == 'yes':
@@ -819,24 +717,22 @@ def main():
                         progress_bar.progress((i + 1) / len(rows))
 
                     status_text.empty()
-                    progress_bar.progress(100)
-                    status_container.success("✅ Batch download completed!")
-
-                    st.success(f"📥 Downloaded: {downloaded} | Skipped: {skipped} | Failed: {failed}")
-
-                    end_time = time.time()
-                    time_container.info(f"⏱️ Download time: {format_time(end_time - start_time)}")
+                    st.success(f"Download complete in {format_time(time.time() - start_time)}: "
+                               f"{downloaded} downloaded, {skipped} skipped, {failed} failed.")
 
                 except Exception as e:
-                    status_container.error(f"❌ Error during batch download: {str(e)}")
                     progress_bar.empty()
+                    st.error(f"Batch download failed: {str(e)}")
 
             # Reset button
-            if st.button("🔄 Extract Another Channel", key="reset_channel"):
+            if st.button("Extract another channel", key="reset_channel"):
                 st.session_state.channel_extracted = False
                 st.session_state.channel_csv_path = None
                 st.session_state.channel_folder = None
                 st.rerun()
+
+    # Persistent result display for single-item modes
+    render_last_result(input_source)
 
 if __name__ == "__main__":
     main()
